@@ -1,0 +1,7 @@
+*.pt
+*.ckpt
+venv/
+checkponts/
+wandb/
+cats/
+__pycache__/
