@@ -29,7 +29,7 @@ tensorboard_logger = WandbLogger(
     version=f"version_{date}"     # (Optional) Version of the experiment
 )
 
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 
 AVAIL_GPUS = min(1, torch.cuda.device_count())
 NUM_WORKER = int(os.cpu_count() / 2)
@@ -116,7 +116,7 @@ def get_callbacks(dirpath='checkpoints'):
 
 # Example usage:
 data_dir = "/kaggle/input/cat-image" if os.path.isdir(r"/kaggle/input/cat-image" ) else path
-data_module = HumanFacesDataModule(data_dir=data_dir, batch_size=32, num_workers=15)
+data_module = HumanFacesDataModule(data_dir=data_dir, batch_size=BATCH_SIZE, num_workers=15)
 
                     
 model = GAN(latent=64,    g_lr=1e-4,
