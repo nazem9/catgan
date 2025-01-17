@@ -91,7 +91,7 @@ class Generator(nn.Module):
 
     def forward(self, z):
         out = self.l1(z)
-        out = out.view(out.size(0), 2048, self.init_size, self.init_size)  # Reshape to (batch_size, 1024, 2, 2)
+        out = out.view(out.size(0), 1024, self.init_size, self.init_size)  # Reshape to (batch_size, 1024, 2, 2)
         img = self.conv_blocks(out)
         return img  # Output shape: [batch_size, 3, 64, 64]
 
@@ -113,13 +113,10 @@ class Discriminator(nn.Module):
             nn.BatchNorm2d(feature_map_size * 4),
             nn.LeakyReLU(0.2, inplace=True),
 			
-			nn.Conv2d(feature_map_size * 4, feature_map_size * 8, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_map_size * 8),
-            nn.LeakyReLU(0.2, inplace=True),
 
 			nn.Flatten(),
             # Output layer
-            nn.Linear(feature_map_size * 4 * 32, 1),
+            nn.Linear(feature_map_size * 4 * 64, 1),
         )
 
     def forward(self, img):

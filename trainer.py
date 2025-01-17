@@ -31,8 +31,6 @@ AVAIL_GPUS = min(1, torch.cuda.device_count())
 NUM_WORKER = int(os.cpu_count() / 2)
 
 
-
-
 class HumanFacesDataModule(LightningDataModule):
     def __init__(self, data_dir: str, batch_size: int = 64, num_workers: int = 4):
         super().__init__()
@@ -43,8 +41,6 @@ class HumanFacesDataModule(LightningDataModule):
         # Define the transformation
         self.transform = transforms.Compose([
             transforms.Resize((64, 64)),                 # Slightly larger for random crop
-            # transforms.RandomCrop((64, 64)),             # Randomly crop to desired size
-            # transforms.RandomHorizontalFlip(),           # Randomly flip images horizontally
             transforms.ToTensor(),                       # Convert images to PyTorch tensors
             transforms.Normalize((0.5, 0.5, 0.5),        # Normalize images to [-1, 1]
                                  (0.5, 0.5, 0.5))
@@ -56,22 +52,9 @@ class HumanFacesDataModule(LightningDataModule):
         Split the dataset into training, validation, and test sets.
         """
         self.full_dataset = datasets.ImageFolder(self.data_dir, transform=self.transform)
-        # test_size = int(len(full_dataset) * 0.2)
-        # val_size = int(len(full_dataset) * 0.1)
-        # train_size = len(full_dataset) - test_size - val_size
-        
-        # self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-        #     full_dataset, [train_size, val_size, test_size]
-        # )
 
     def train_dataloader(self):
         return DataLoader(self.full_dataset, batch_size=self.batch_size, shuffle=True) #, num_workers=self.num_workers)
-
-    # def val_dataloader(self):
-    #     return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
-
-    # def test_dataloader(self):
-    #     return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
 
 
 
