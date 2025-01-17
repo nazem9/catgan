@@ -1,12 +1,8 @@
 import os
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 import torchvision.datasets as datasets
 from torchvision import transforms
-from torchvision.transforms import  v2
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torchvision.datasets import DatasetFolder
 import kagglehub
 
@@ -34,15 +30,7 @@ BATCH_SIZE = 32
 AVAIL_GPUS = min(1, torch.cuda.device_count())
 NUM_WORKER = int(os.cpu_count() / 2)
 
-from PIL import Image
-tsf = v2.Compose([
-    transforms.PILToTensor(),
-    transforms.CenterCrop(128),
-    transforms.Resize((128,128)),
-    transforms.ConvertImageDtype(torch.float),
-    transforms.Normalize(mean=(0.5, 0.5, 0.5),
-                         std = (0.5, 0.5, 0.5))
-                         ])
+
 
 
 class HumanFacesDataModule(LightningDataModule):
