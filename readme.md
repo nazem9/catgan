@@ -3,6 +3,7 @@
 
 Catgans is a project that utilizes Generative Adversarial Networks (GANs) to generate images of cats. The goal is to create realistic and diverse cat images using deep learning techniques.
 
+![image](./media/ezgif-2-0aa45e243e.gif)
 ## Features
 
 - Generate 64x64 cat images
