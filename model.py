@@ -1,153 +1,130 @@
 import torch
 import torch.nn as nn
 import torchsummary
+
 class PixelNorm(nn.Module):
     def __init__(self, epsilon=1e-8):
-        """Pixel normalization layer."""
         super(PixelNorm, self).__init__()
         self.epsilon = epsilon
 
     def forward(self, x):
-        # Calculate the squared sum of features along the channel dimension
-        squared_sum = torch.sum(x**2, dim=1, keepdim=True)
-        # Normalize each pixel
-        normalized = x / torch.sqrt(squared_sum + self.epsilon)
-        return normalized
+        # Normalize the feature vector in each pixel to unit length
+        return x / torch.sqrt(torch.mean(x**2, dim=1, keepdim=True) + self.epsilon)
 
-class ResidualBlockGenerator(nn.Module):
-    def __init__(self, in_channels, out_channels, num_layers=4):
-        super(ResidualBlockGenerator, self).__init__()
-        layers = []
-
-        # First layer (may change the number of channels)
-        layers.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
-        layers.append(PixelNorm())
-        layers.append(nn.LeakyReLU(0.2))
-
-        # Additional layers
-        for _ in range(num_layers - 1):
-            layers.append(nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1))
-            layers.append(PixelNorm())
-            layers.append(nn.LeakyReLU(0.2))
-
-        self.block = nn.Sequential(*layers)
-
-        # Adjust skip connection if the number of input and output channels differ
-        if in_channels != out_channels:
-            self.skip_connection = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0),
-                PixelNorm()
-            )
-        else:
-            self.skip_connection = None
-
-        self.activation = nn.LeakyReLU(0.2)  # Use LeakyReLU consistently
-
-    def forward(self, x):
-        identity = x
-        out = self.block(x)
-        if self.skip_connection is not None:
-            identity = self.skip_connection(x)
-        out += identity
-        return self.activation(out)
-    
 class Generator(nn.Module):
     def __init__(self, latent_dim=100):
         super(Generator, self).__init__()
-        self.init_size = 2  # Starting with 2x2 feature maps
-        self.latent_dim = latent_dim
 
-        self.l1 = nn.Sequential(
-            nn.Linear(latent_dim, 1024 * self.init_size * self.init_size),
-            nn.LeakyReLU(0.2)
+        self.latent_dim = latent_dim
+        self.init_size = 11  # Initial size to eventually reach 178x178
+        self.fc = nn.Sequential(
+            nn.Linear(latent_dim, 512 * self.init_size * self.init_size),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
+        # Build the generator network with upsampling layers
         self.conv_blocks = nn.Sequential(
-            # After reshaping, feature map size: (1024, 2, 2)
-
-            # Upsample to (512, 4, 4)
-            nn.ConvTranspose2d(1024, 512, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-
-            # Upsample to (256, 8, 8)
+            nn.BatchNorm2d(512),
+            
+            # Upsample from 11x11 -> 22x22
             nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
 
-            # Upsample to (128, 16, 16)
+            # Upsample from 22x22 -> 44x44
             nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
 
-            # Upsample to (64, 32, 32)
+            # Upsample from 44x44 -> 88x88
             nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
 
-            # Upsample to (32, 64, 64)
+            # Upsample from 88x88 -> 176x176
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
 
-            nn.Conv2d(32, 3, kernel_size=3, stride=1, padding=1),
-            nn.Tanh()
+            # Final Conv layer to reach 178x178
+            nn.Conv2d(32, 3, kernel_size=3, stride=1, padding=1),  # Output size: 176x176
+            nn.Upsample(size=(178, 178)),  # Upsample to 178x178
+            nn.Tanh(),
         )
 
     def forward(self, z):
-        out = self.l1(z)
-        out = out.view(out.size(0), 1024, self.init_size, self.init_size)  # Reshape to (batch_size, 1024, 2, 2)
+        out = self.fc(z)
+        out = out.view(-1, 512, self.init_size, self.init_size)  # Reshape to (batch_size, 512, 11, 11)
         img = self.conv_blocks(out)
-        return img  # Output shape: [batch_size, 3, 64, 64]
+        return img  # Output size: (batch_size, 3, 178, 178)
 
-# Minimal Convolutional Discriminator
 class Discriminator(nn.Module):
-    def __init__(self, img_channels=3, feature_map_size=64):
+    def __init__(self):
         super(Discriminator, self).__init__()
-        self.disc = nn.Sequential(
-            # Input: img_channels x 64 x 64
-            nn.Conv2d(img_channels, feature_map_size, kernel_size=4, stride=2, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
 
-			# 32 x 32
-            nn.Conv2d(feature_map_size, feature_map_size * 2, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_map_size * 2),
+        # Input size: (3, 178, 178)
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=4, stride=2, padding=1),    # Output: (64, 89, 89)
             nn.LeakyReLU(0.2, inplace=True),
-			# 16 x 16
-            nn.Conv2d(feature_map_size * 2, feature_map_size * 4, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_map_size * 4),
+            
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # Output: (128, 45, 45)
+            nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-			
-
-			nn.Flatten(),
-            # Output layer
-            nn.Linear(feature_map_size * 4 * 64, 1),
+            
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1), # Output: (256, 23, 23)
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1), # Output: (512, 12, 12)
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),  # Output: (1, 1, 1)
+            nn.Flatten(),
+            nn.Linear(30976, 1)
         )
 
     def forward(self, img):
-        out = self.disc(img)
-        return out.view(-1, 1)  # Output shape: [batch_size, 1]
+        validity = self.model(img)
+        return validity.view(-1, 1)  # Output size: (batch_size, 1)
 
-# Example usage
-if __name__ == '__main__':
+def weights_init_normal(m):
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+        if m.bias is not None:
+            nn.init.constant_(m.bias.data, 0)
+    elif classname.find("BatchNorm") != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
+
+if __name__ == "__main__":
     # Hyperparameters
     latent_dim = 100
     batch_size = 8
     img_channels = 3
-    img_size = 64  # Image size: 64x64
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Create noise vector
-    noise = torch.randn(batch_size, latent_dim,device='cuda')
+    # Initialize models
+    generator = Generator(latent_dim).to(device)
+    discriminator = Discriminator().to(device)
 
-    # Instantiate models
-    gen = Generator(latent_dim=latent_dim).to('cuda')
-    disc = Discriminator(img_channels=img_channels).to('cuda')
+    # Initialize weights
+    generator.apply(weights_init_normal)
+    discriminator.apply(weights_init_normal)
 
-    # Generate fake images
-    fake_images = gen(noise)
-    print("Fake image size:", fake_images.size())
+    # Test forward pass
+    z = torch.randn(batch_size, latent_dim).to(device)
+    fake_imgs = generator(z)
+    disc_output = discriminator(fake_imgs)
 
-    # Pass fake images through discriminator
-    disc_output = disc(fake_images)
+    # Print shapes
+    print(f"Generator output shape: {fake_imgs.shape}")  # Expected: [8, 3, 178, 178]
+    print(f"Discriminator output shape: {disc_output.shape}")  # Expected: [8, 1]
 
-    # Print shapes to verify
-    print(f"Fake images shape: {fake_images.shape}")          # Expected: [batch_size, 3, 64, 64]
-    print(f"Discriminator output shape: {disc_output.shape}")  # Expected: [batch_size, 1]
-    
-    print(torchsummary.summary(gen,(100,)))
-    print(torchsummary.summary(disc,(3,64,64)))
+    # Print model summaries
+    print("\nGenerator Summary:")
+    torchsummary.summary(generator, (latent_dim,), device=str(device))
+    print("\nDiscriminator Summary:")
+    torchsummary.summary(discriminator, (3, 178, 178), device=str(device))
