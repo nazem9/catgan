@@ -1,6 +1,20 @@
 import torch
 from tkinter import Tk, Label, Button, filedialog, Canvas
+
 from PIL import Image, ImageTk
+from lightning_module import GAN
+
+def make_torchscript():
+    """Create a Torchscript file from a Pytorch lightning checkpoint."""
+    checkpoint_path = filedialog.askopenfilename(title="Select a PyTorch Lightning checkpoint file") 
+    print(checkpoint_path)
+    # Load the model from the checkpoint
+    model = GAN.load_from_checkpoint(checkpoint_path)
+    model.eval()
+
+    # Convert the model to Torchscript
+    traced_model = model.to_torchscript(file_path="model.pt", method="script")
+
 
 # Load the model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -14,8 +28,8 @@ def generate_image():
     """
     try:
         # Generate random noise as input
-        latent_dim = 4  # Replace with your model's latent dimension
-        noise = 0.50+0.5*torch.randn(1, latent_dim, device=device)  # Ensure noise is on the same device as the model
+        latent_dim = 100  # Replace with your model's latent dimension
+        noise = torch.randn(1, latent_dim, device=device)  # Ensure noise is on the same device as the model
 
         # Forward pass
         generated_image = model(noise)
@@ -37,6 +51,7 @@ def generate_image():
 
         # Create a PIL image
         image = Image.fromarray(generated_image)
+        image = image.resize((256, 256))
 
         # Display the image in the Tkinter canvas
         img_tk = ImageTk.PhotoImage(image=image)
@@ -58,5 +73,7 @@ canvas.pack()
 generate_button = Button(root, text="Generate Image", command=generate_image)
 generate_button.pack()
 
+convert_button = Button(root, text="convert to torchscript", command = lambda : make_torchscript())
+convert_button.pack()
 # Start the Tkinter event loop
 root.mainloop()
