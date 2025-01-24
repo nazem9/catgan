@@ -90,14 +90,7 @@ data_dir = "/kaggle/input/cat-image" if os.path.isdir(r"/kaggle/input/cat-image"
 data_module = HumanFacesDataModule(data_dir=data_dir, batch_size=BATCH_SIZE, num_workers=15)
 
                     
-model = GAN(latent=64,    g_lr=1e-4,
-    d_lr=1e-4,
-    channels=1,
-    scheduler_type='cosine',
-    T_max=200,  # If None, will be set to max_epochs
-    T_0=10,
-    T_mult=2,
-    eta_min=1e-6)
+model = GAN()
 
 trainer = pl.Trainer(max_epochs = 200 , callbacks=get_callbacks(dirpath="./checkponts1"), logger=tensorboard_logger,
                      accelerator='gpu',
