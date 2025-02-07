@@ -68,7 +68,7 @@ class Generator(nn.Module):
             # Upsample to (512, 4, 4)
             nn.ConvTranspose2d(1024, 512, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU(0.2),
-
+			nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
             # Upsample to (256, 8, 8)
             nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU(0.2),
@@ -106,17 +106,21 @@ class Discriminator(nn.Module):
 
 			# 32 x 32
             nn.Conv2d(feature_map_size, feature_map_size * 2, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_map_size * 2),
+            PixelNorm(),
             nn.LeakyReLU(0.2, inplace=True),
 			# 16 x 16
             nn.Conv2d(feature_map_size * 2, feature_map_size * 4, kernel_size=4, stride=2, padding=1),
-            nn.BatchNorm2d(feature_map_size * 4),
+            PixelNorm(),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            nn.Conv2d(feature_map_size * 4, feature_map_size * 8, kernel_size=4, stride=2, padding=1),
+            PixelNorm(),
             nn.LeakyReLU(0.2, inplace=True),
 			
 
 			nn.Flatten(),
             # Output layer
-            nn.Linear(feature_map_size * 4 * 64, 1),
+            nn.Linear(feature_map_size * 4 * 32, 1),
         )
 
     def forward(self, img):

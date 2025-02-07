@@ -78,7 +78,7 @@ def get_callbacks(dirpath='checkpoints'):
         # Early stopping
         EarlyStopping(
             monitor='g_loss',
-            patience=200,
+            patience=300,
             mode='min',
             verbose=True
         )
